@@ -1,124 +1,144 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-//#include <ThreeWire.h>  
-#include <iarduino_RTC.h>
-//#include <ArduinoJson-v6.18.0.h>
-#include <WiFi.h>
 #include <HTTPClient.h>
+#include <string>
+
 #include <sstream>
-#include <ESP32Servo.h> 
 
-Servo myservo;  // create servo object to control a servo
+#include <WarmFloor.h>
 
-// Possible PWM GPIO pins on the ESP32: 0(used by on-board button),2,4,5(used by on-board LED),12-19,21-23,25-27,32-33 
-int servoPin = 18;      // GPIO pin used to connect the servo control (digital out)
-// Possible ADC pins on the ESP32: 0,2,4,12-15,32-39; 34-39 are recommended for analog input
-int potPin = 34;        // GPIO pin used to connect the potentiometer (analog in)
-int ADC_Max = 4096;     // This is the default ADC max value on the ESP32 (12 bit ADC width);
-                        // this width can be set (in low-level oode) from 9-12 bits, for a
-                        // a range of max values of 512-4096
-  
-int val;    // variable to read the value from the analog pin
-int pos = 0; 
-       // DynamicJsonDocument doc(4096);
-
-//RST, CLK, DAT.
-iarduino_RTC watch(RTC_DS1302, 16, 5, 4); // Объявляем объект watch для работы с RTC модулем на базе чипа DS1302, указывая выводы Arduino подключённые к выводам модуля RST, CLK, DAT.
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-
-#define OLED_RESET 4        // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
-// номера портов для светодиодов
-const int ledPin4 = 4;
-
-// задаём свойства ШИМ-сигнала
-const int freq = 5000;
-const int ledChannel = 0;
-const int resolution = 8;
-
-const char *ssid = "TP-LINK_112900";
-const char *password = "";
-
-int seconds;
-int minutes;
-int hour;
-
-char secondsChar[10];
-char minutesChar[10];
-char hourChar[10];
-
-void setUnixTime();
-void testServo();
-void setWatchTime();
-void testRead();
-void connectToWiFi();
-void setupDisplay();
+WarmFloor warmFloor;
 
 void setup()
 {
   Serial.begin(9600);
+    
   //delay(4000);
   setupDisplay();
   connectToWiFi();
-  
-  watch.begin();
+
+  //watch.begin();
   setUnixTime();
-  
-  display.clearDisplay();
-  display.setTextSize(2);                                 // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE);                    // Draw white text
-  display.setCursor(0, SCREEN_HEIGHT / 4); // Start at top-left corner
-  display.println(F("Loading..."));
-  display.display();
-  setWatchTime();
-  pinMode(17, OUTPUT);
-    pinMode(23, OUTPUT);
   pinMode(18, INPUT_PULLDOWN);
-  pinMode(19, INPUT_PULLDOWN);
-  digitalWrite(17, HIGH);
-  digitalWrite(23, HIGH);
+  pinMode(19, OUTPUT);
+  pinMode(17, OUTPUT);
+  digitalWrite(19, HIGH);
 
-
-//  myservo.setPeriodHertz(50); 
-//  myservo.attach(18);
-//         myservo.write(180);
-//         delay(1000);
-//                 myservo.write(0);
-// delay(1000);
-//         myservo.write(180);
+  //display.setFont(&FreeSerif9pt7b);
+  // display.clearDisplay();
+  // display.setTextSize(2);                                 // Normal 1:1 pixel scale
+  // display.setTextColor(SSD1306_WHITE);                    // Draw white text
+  // display.setCursor(0, SCREEN_HEIGHT / 4); // Start at top-left corner
+  //display.println(F("Load4"));
+  //display.display();
+  warmFloor.heating(true);
+  warmFloor.pumpOn();
+  wifiServer.begin();
+  
+ // setWatchTime();
 
 }
-void connectToWiFi() {
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(300);
-    Serial.println("Connecting to WiFi..");
-  }
- 
-  Serial.println("Connected to the WiFi network");
-}
-void setupDisplay(){
+
+void setupDisplay()
+{
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS))
   {
     Serial.println(F("SSD1306 allocation failed"));
     for (;;)
       ; // Don't proceed, loop forever
   }
+    display.clearDisplay();
+
+  
 }
+void WarmFloor::wifiOn() {
+  display.fillRect(122,6,2,2, WHITE);
+
+  display.fillRect(119,4,2,2, WHITE);
+  display.fillRect(125,4,2,2, WHITE);
+  display.fillRect(121,3,4,2,WHITE);
+
+  display.fillRect(118,1,2,2, WHITE);
+  display.fillRect(126,1,2,2, WHITE);
+  display.fillRect(120,0,6,2,WHITE);
+  display.display();
+
+}
+
+void WarmFloor::wifiOf(){
+  display.fillRect(118,0,10,8, BLACK);
+  display.display();
+}
+
+void WarmFloor::heating(bool isHeating) {
+  // Draw bitmap on the screen
+  if(isHeating) {
+  display.drawBitmap(0, 19, heating_map, 20, 27, WHITE);
+  }  else {
+  display.drawBitmap(0, 19, heating_map, 20, 27, BLACK);
+  }
+  display.display();
+}
+
+void WarmFloor::pumpOf(){
+  display.fillRoundRect(104,20,24,24,5, WHITE);
+  display.fillRoundRect(107,23,18,18,5, BLACK);
+  display.setCursor(111,28);
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.println("OF");
+  display.display();
+}
+
+void WarmFloor::pumpOn() {
+  display.fillRoundRect(104,20,24,24,5, WHITE);
+  display.fillRoundRect(107,23,18,18,5, BLACK);
+  display.setCursor(111,28);
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.println("ON");
+  display.display();
+}
+
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(300);
+    Serial.println("Connecting to WiFi..");
+  }
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("Connected to the WiFi network");
+    warmFloor.wifiOn();
+  }
+  else
+  {
+    warmFloor.wifiOf();
+  }
+}
+
+uint32_t timerCheckWifiOn;
+void checkWifiOn(int updateInterval) {
+  if(millis() - timerCheckWifiOn >= updateInterval) {
+    timerCheckWifiOn = millis();
+  if (WiFi.status() != WL_CONNECTED) {
+    // WiFi.disconnect(true);
+    // WiFi.mode(WIFI_OFF);
+    warmFloor.wifiOf();
+    
+
+  }
+  }
+}
+
 int ts = 0;
 
-int readTimer;
-void testRead() {
-  if (millis() - readTimer >= 400)
+int timerReadInput;
+void readInput() {
+  if (millis() - timerReadInput >= 400)
   {
-    readTimer = millis();
+    timerReadInput = millis();
     if (digitalRead(18) > 0)  {
        digitalWrite(17, HIGH);
       Serial.println(digitalRead(18));
@@ -161,21 +181,46 @@ void setDispalyTime(int updateInterval = 1000)
   if (millis() - timerDisplayTime >= updateInterval)
   {
     timerDisplayTime = millis(); // сброс таймера
-    display.clearDisplay();
+    //display.clearDisplay(); //
+    display.fillRect(SCREEN_WIDTH / 4, SCREEN_HEIGHT / 5, 60, 18, BLACK);
     display.setTextSize(2);                                 // Normal 1:1 pixel scale
     display.setTextColor(SSD1306_WHITE);                    // Draw white text
-    display.setCursor(SCREEN_WIDTH / 5, SCREEN_HEIGHT / 5); // Start at top-left corner
+    display.setCursor(SCREEN_WIDTH / 4, SCREEN_HEIGHT / 5); // Start at top-left corner
     //Serial.println(secondsChar);
-    std::string strin;
-     strin += hourChar;
-     strin += ":";
-     strin += minutesChar;
-     strin += ":";
-     strin += secondsChar;
+   // std::string strin;
+   //  strin += hourChar;
+    // strin += ":";
+   //  strin += minutesChar;
+    //  strin += ":";          little space on screen
+    //  strin += secondsChar;
      
-    display.println(F(strin.c_str()));
+    display.println(F(twoDigits()));
     display.display();
   }
+}
+const char *twoDigits() {
+    std::string textHours, textMinutes, text;
+    std::stringstream ssHours(hourChar); // cast to int
+    std::stringstream ssMinutes(minutesChar);
+    int iHours, iMinutes;
+    ssHours >> iHours; // Now the variable "iHours" holds the value ssHours(hourChar);
+    ssMinutes >> iMinutes;
+    ssHours << iHours;
+    ssMinutes << iMinutes;
+    textHours = ssHours.str();
+    textMinutes = ssMinutes.str();
+    if (iHours < 10) {
+        textHours = "0" + textHours;
+    } else {
+        textHours = textHours;
+    }
+    if (iMinutes < 10) {
+        textMinutes = "0" + textMinutes;
+    } else {
+        textMinutes = textMinutes;
+    }
+    text = textHours + ":" + textMinutes;
+    return text.c_str();
 }
 void getTime(){}
 int duratin(int milis = 3000)
@@ -325,45 +370,37 @@ uint32_t getUnixTime(String payload = "unixtime:1622493860") {
       currentTime = curUnix;
       return curUnix;
 }
-int iii = 0;
+int counterErrors = 0;
 uint32_t getInternetTime() {
     String payload;                                        //Make the request
     boolean isSuccess = false;
     uint32_t toReturn = 0;
-    if ((WiFi.status() == WL_CONNECTED))
-    { //Check the current connection status
-
+    if ((WiFi.status() == WL_CONNECTED)) { //Check the current connection status
       HTTPClient http;
-
       http.begin("http://worldtimeapi.org/api/timezone/Europe/Helsinki"); //Specify the URL
       int httpCode = http.GET();
-      if (httpCode > 0)
-      { //Check for the returning code
-
+      if (httpCode > 0) { //Check for the returning code
         payload = http.getString();
         // Serial.println(httpCode);
         Serial.println(payload);
         isSuccess = true;
-      }
-
-      else
-      {
+      } else {
         isSuccess = false;
+        counterErrors++;
         Serial.println("Error on HTTP request");
       }
 
       http.end(); //Free the resources
+
+      if (isSuccess) {
+        counterErrors = 0;
+        toReturn = getUnixTime(payload);
+      } else if (counterErrors < 5) {
+        delay(2000);
+        getInternetTime();
+      }
     }
-    if (isSuccess)
-    {
-      iii = 0;
-      toReturn = getUnixTime(payload);
-    }
-    else if (iii < 5)
-    {
-      delay(2000);
-      getInternetTime();
-    }
+
     return toReturn;
 }
 
@@ -373,18 +410,34 @@ uint32_t currentUnixTime = getInternetTime() + 10800;
 //currentUnixTime = currentTime + 10800;
 Serial.println(currentUnixTime);
 if (currentTime != 10800) {
-watch.settimeUnix(currentUnixTime);
+  setWatchTime(currentUnixTime);
 
+  //watch.settimeUnix(currentUnixTime); Now ds1302 not work
 }
 }
 
-void setWatchTime() {
-seconds = watch.seconds;
-minutes = watch.minutes;
-hour = watch.Hours;
+void setWatchTime(int subt) {
+// seconds = watch.seconds; now ds1302 not work
+// minutes = watch.minutes; 
+// hour = watch.Hours; 
+ //int subt = 1632953602;
+delay(2000);
+uint32_t days = (uint32_t)floor(subt / 86400);
+hour = (uint32_t)floor(((subt - days * 86400) / 3600) % 24);
+minutes = (uint32_t)floor((((subt - days * 86400) - hour * 3600) / 60) % 60);
+seconds = (uint32_t)floor(((((subt - days * 86400) - hour * 3600) - minutes * 60)) % 60);
+
+Serial.println("KJHG");
+Serial.println(hour);
+Serial.println(minutes);
+Serial.println(seconds);
+
+
+
 }
 uint32_t timerTickTime;
-void tickTime() {
+void tickTime() // interval 1000
+ { 
   if (millis() - timerTickTime >= 1000){  // update interval
   timerTickTime = millis();
   seconds++;
@@ -419,65 +472,56 @@ void getSensorTime() {
     delay(1000);
 
 }
+void WarmFloor::commands(std::string commands)
+{
+  if (commands.compare("pumpOn") == 0)
+  {
+    warmFloor.pumpOn();
+  }
+  if (commands.compare("pumpOf") == 0)
+  {
+    warmFloor.pumpOf();
+  }
+  if (commands.compare("updateTime") == 0)
+  {
+    setUnixTime();
+  }
+}
+void WarmFloor::webServer() {
+   WiFiClient client = wifiServer.available();
+
+  if (client) {
+    while (client.connected()) {
+      while (client.available() > 0) {
+        char c = client.read();
+        commandWebServer.push_back(c);
+        if (commandWebServer.back() == '\n') { // если байт является переводом строки
+        Serial.println("yes last contain");
+        commandWebServer.erase(commandWebServer.end()-2, commandWebServer.end());  // for correct compare
+        warmFloor.commands(commandWebServer);
+        commandWebServer = "";
+     }
+        Serial.write(c);
+      }
+      delay(10);
+    }
+
+    client.stop();
+    Serial.println("Client disconnected");
+  }
+}
 void loop()
 {
- tickTime(); // interval 1000 
+ tickTime();  // interval 1000
  setDispalyTime(); 
- //testRead();
+ warmFloor.webServer();
+ //checkWifiOn();
+ //getSensorTime();
+ //readInput();
  //testServo();
+// warmFloor.heating(true);
+// delay(4000);
+// warmFloor.heating(false);
+// delay(4000);
 
-}
-
-void testfillrect()
-{
-  display.clearDisplay();
-
-  for (int16_t i = 0; i < display.height() / 2; i += 3)
-  {
-    // The INVERSE color is used so rectangles alternate white/black
-    display.fillRect(i, i, display.width() - i * 2, display.height() - i * 2, SSD1306_INVERSE);
-    display.display(); // Update screen with each newly-drawn rectangle
-    delay(1);
-  }
-
-  delay(2000);
-}
-void testfillrect2()
-{
-  display.clearDisplay();
-
-  for (int16_t i = 0; i < display.height() / 3; i += 3)
-  {
-    // The INVERSE color is used so rectangles alternate white/black
-    display.fillRect(i, i, display.width() - i * 3, display.height() - i * 3, SSD1306_INVERSE);
-    display.display(); // Update screen with each newly-drawn rectangle
-    delay(1);
-  }
-
-  delay(2000);
-}
-void testdrawrect()
-{
-  display.clearDisplay();
-
-  for (int16_t i = 0; i < display.height() / 2; i += 2)
-  {
-    display.drawRect(i, i, display.width() - 2 * i, display.height() - 2 * i, SSD1306_WHITE);
-    display.display(); // Update screen with each newly-drawn rectangle
-    delay(1);
-  }
-
-  delay(2000);
-}
-//void drawCircle(uint16_t x0, uint16_t y0, uint16_t r, uint16_t color);
-void fillCircle3()
-{
-  //display.clearDisplay();
-  display.fillRect(SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SSD1306_WHITE);
-  display.display();
-  //  display.drawPixel(11, 11 SSD1306_WHITE);
-  //  display.drawPixel(12, 12, SSD1306_WHITE);
-  //  display.drawPixel(13, 13, SSD1306_WHITE);
-  //  display.drawPixel(14, 14, SSD1306_WHITE);
-  //  display.drawPixel(15, 15, SSD1306_WHITE);
 }

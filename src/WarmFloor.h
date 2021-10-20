@@ -17,7 +17,7 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 iarduino_RTC watch(RTC_DS1302, 16, 5, 4); // Объявляем объект watch для работы с RTC модулем на базе чипа DS1302, указывая выводы Arduino подключённые к выводам модуля RST, CLK, DAT.
 
-  Servo myservo;  // create servo object to control a servo
+Servo myservo;  // create servo object to control a servo
 
 // Possible PWM GPIO pins on the ESP32: 0(used by on-board button),2,4,5(used by on-board LED),12-19,21-23,25-27,32-33 
 int servoPin = 18;      // GPIO pin used to connect the servo control (digital out)
@@ -32,12 +32,6 @@ int pos = 0;
        // DynamicJsonDocument doc(4096);
 
 //RST, CLK, DAT.
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-
-#define OLED_RESET 4        // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
   // номера портов для светодиодов
 const int ledPin4 = 4;
 
@@ -48,8 +42,10 @@ const int resolution = 8;
 
 const char *ssid = "TP-LINK_112900";
 const char *password = "";
-// Номер порта для сервера
-WiFiServer wifiServer(80);
+
+// webServer
+TaskHandle_t TaskWebserver;
+WiFiServer wifiServer(80); // Номер порта для сервера
 std::string commandWebServer;
 
 uint8_t heating_map[] = {
@@ -93,6 +89,7 @@ char hourChar[10];
 
 const char *twoDigits();
 
+void webServer(void * pvParameters);
 void setUnixTime();
 void testServo();
 void setWatchTime(int subt = 1632953602);
@@ -109,7 +106,6 @@ class WarmFloor  // имя класса принято писать с Боль�
   public:
   // from Oled
   void commands(std::string commands = "none");
-  void webServer();
   void heating(bool isHeating = false); // Boiler should be 
   void pumpOf();
   void pumpOn();

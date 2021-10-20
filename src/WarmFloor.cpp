@@ -25,19 +25,20 @@ void setup()
   pinMode(17, OUTPUT);
   digitalWrite(19, HIGH);
 
-  //display.setFont(&FreeSerif9pt7b);
-  // display.clearDisplay();
-  // display.setTextSize(2);                                 // Normal 1:1 pixel scale
-  // display.setTextColor(SSD1306_WHITE);                    // Draw white text
-  // display.setCursor(0, SCREEN_HEIGHT / 4); // Start at top-left corner
-  //display.println(F("Load4"));
-  //display.display();
   warmFloor.heating(true);
   warmFloor.pumpOn();
   wifiServer.begin();
-  
- // setWatchTime();
 
+  //create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
+  xTaskCreatePinnedToCore(
+                    webServer,   /* Task function. */
+                    "TaskWebserver",     /* name of task. */
+                    10000,       /* Stack size of task */
+                    NULL,        /* parameter of the task */
+                    0,           /* priority of the task */
+                    &TaskWebserver,      /* Task handle to keep track of created task */
+                    0);          /* pin task to core 0 */                  
+  delay(100); 
 }
 
 void setupDisplay()
@@ -485,11 +486,12 @@ void WarmFloor::commands(std::string commands)
   if (commands.compare("updateTime") == 0)
   {
     setUnixTime();
+    setDispalyTime();
   }
 }
-void WarmFloor::webServer() {
-   WiFiClient client = wifiServer.available();
-
+void webServer(void * pvParameters) {
+  for(;;) {
+  WiFiClient client = wifiServer.available();
   if (client) {
     while (client.connected()) {
       while (client.available() > 0) {
@@ -509,12 +511,14 @@ void WarmFloor::webServer() {
     client.stop();
     Serial.println("Client disconnected");
   }
+  }
+    //vTaskDelete(NULL);
 }
 void loop()
 {
  tickTime();  // interval 1000
  setDispalyTime(); 
- warmFloor.webServer();
+ //warmFloor.webServer();
  //checkWifiOn();
  //getSensorTime();
  //readInput();

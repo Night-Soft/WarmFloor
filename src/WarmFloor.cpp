@@ -88,8 +88,9 @@ void WarmFloor::pumpOf(){
   display.setCursor(111,28);
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.println("OF");
+  display.println(F("OF"));
   display.display();
+  isPump = false;
 }
 
 void WarmFloor::pumpOn() {
@@ -98,8 +99,9 @@ void WarmFloor::pumpOn() {
   display.setCursor(111,28);
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.println("ON");
+  display.println(F("ON"));
   display.display();
+  isPump = true;
 }
 
 void connectToWiFi() {
@@ -473,26 +475,97 @@ void getSensorTime() {
     delay(1000);
 
 }
-void WarmFloor::commands(std::string commands)
+
+std::string constructorCommand(std::string command, std::string data)
+{
+  if(data.length() >= 1) {
+        command.append("\n1\n"); // separation if is command 
+        command.append(data);
+  }
+  command.insert (0, "\n");	// separation of size
+  unsigned short int length = command.length ();
+  std::string strLength;
+  std::stringstream ss;
+  ss << length;
+  ss >> strLength;
+  ss.clear ();
+  unsigned short int lengthLenth = strLength.length ();
+  length = length + lengthLenth;
+  ss << length;
+  ss >> strLength;
+  command.insert (0, strLength);
+  return command;
+}
+
+void WarmFloor::commands(WiFiClient client, std::string commands)
 {
   if (commands.compare("pumpOn") == 0)
   {
     warmFloor.pumpOn();
+    client.println("pumpOn");
   }
   if (commands.compare("pumpOf") == 0)
   {
     warmFloor.pumpOf();
+    client.println("pumpOf");
   }
   if (commands.compare("updateTime") == 0)
   {
     setUnixTime();
     setDispalyTime();
+    client.println("updateTime");
   }
+  if (commands.compare("readScreen") == 0)
+  {
+    readScreen(client, true);
+    client.println("readScreen");
+  }
+}
+void WarmFloor::readScreen(WiFiClient client, bool send)
+{
+  bool pixelColor;
+  std::string pixels[64];
+  Serial.println("start read");
+  for (int i = 0; i < 64; i++) { // this Y
+    Serial.println("");
+    for (int j = 0; j < 128; j++) { // this X
+      pixelColor = display.getPixel(j, i);
+      if (pixelColor) {
+        pixels[i].append("1");
+      }
+      else {
+        pixels[i].append("0");
+      }
+    }
+  }
+  Serial.println("end read");
+  delay(5000);
+  Serial.println("Print");
+  // for send
+  if (send) {
+    for (int i = 0; i < 64; i++) {
+      // Serial.println(pixels[i].c_str());
+      client.println(pixels[i].c_str());
+    }
+    Serial.println("send");
+  }
+  else {
+    Serial.println("Not send just read");
+  }
+}
+void WarmFloor::justConnected(WiFiClient client) {
+  if(isPump) {
+    client.println("pumpOn");
+  } else {
+    client.println("pumpOf");
+  }
+  warmFloor.readScreen(client, true);
 }
 void webServer(void * pvParameters) {
   for(;;) {
   WiFiClient client = wifiServer.available();
   if (client) {
+    warmFloor.justConnected(client);
     while (client.connected()) {
       while (client.available() > 0) {
         char c = client.read();
@@ -500,7 +573,7 @@ void webServer(void * pvParameters) {
         if (commandWebServer.back() == '\n') { // если байт является переводом строки
         Serial.println("yes last contain");
         commandWebServer.erase(commandWebServer.end()-2, commandWebServer.end());  // for correct compare
-        warmFloor.commands(commandWebServer);
+        warmFloor.commands(client, commandWebServer);
         commandWebServer = "";
      }
         Serial.write(c);

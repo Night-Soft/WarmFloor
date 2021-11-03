@@ -88,6 +88,7 @@ char minutesChar[10];
 char hourChar[10];
 
 const char *twoDigits();
+bool isPump = false;
 
 void webServer(void * pvParameters);
 void setUnixTime();
@@ -97,6 +98,7 @@ void testRead();
 void connectToWiFi();
 void setupDisplay();
 void checkWifiOn(int updateInterval = 10000);
+std::string constructorCommand(std::string commands, std::string data = "");
 
 class WarmFloor  // имя класса принято писать с Большой Буквы
 {
@@ -105,7 +107,9 @@ class WarmFloor  // имя класса принято писать с Боль�
 
   public:
   // from Oled
-  void commands(std::string commands = "none");
+  void justConnected(WiFiClient client);
+  void readScreen(WiFiClient client, bool send);
+  void commands(WiFiClient client, std::string commands = "none");
   void heating(bool isHeating = false); // Boiler should be 
   void pumpOf();
   void pumpOn();

@@ -127,9 +127,11 @@ void clearDisplay(){
     }
   }
   display.clearDisplay();
+  int counter = 0;
   for (int i = 0; i < 64; i++) {     // this Y
     for (int j = 0; j < 128; j++) {  // this X
-      display.writePixel(j, i, pixels[i + j]);
+      display.writePixel(j, i, pixels[counter]);
+      counter++;
     }
   }
   display.display();
@@ -380,6 +382,14 @@ void WarmFloor::commands(WiFiClient client, std::string commands) {
     warmFloor.pumpOf();
     client.println(constructorCommand("pumpOf"));
   }
+    if (commands.compare("heatingOf") == 0) {
+    warmFloor.heating(false);
+    client.println(constructorCommand("heatingOf"));
+  }
+    if (commands.compare("heatingOn") == 0) {
+    warmFloor.heating(true);
+    client.println(constructorCommand("heatingOn"));
+  }
   if (commands.compare("updateTime") == 0) {
     setUnixTime();
     setDispalyTime();
@@ -392,6 +402,10 @@ void WarmFloor::commands(WiFiClient client, std::string commands) {
   if (commands.compare("clearDisplay") == 0) {
     clearDisplay();
     client.println(constructorCommand("clearDisplay"));
+  }
+  if (commands.compare("reboot") == 0) {
+    client.println(constructorCommand("reboot"));
+    ESP.restart();
   }
 }
 void WarmFloor::readScreen(WiFiClient client, bool send) {
@@ -429,8 +443,8 @@ void webServer(void *pvParameters) {
   for (;;) {
     WiFiClient client = wifiServer.available();
     if (client) {
-      warmFloor.justConnected(client);
       warmFloor.isConnected(true);
+      warmFloor.justConnected(client);
       while (client.connected()) {
         while (client.available() > 0) {
           char c = client.read();

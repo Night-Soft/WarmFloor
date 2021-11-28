@@ -1,140 +1,94 @@
-#include <Arduino.h>
-#include <HTTPClient.h>
-#include <SPI.h>
-#include <WarmFloor.h>
-#include <Wire.h>
+#include "Ex.h"
+#include "Exter.h"
+#include "Screen/Screen.h"
+Screen screen;
 
-#include <sstream>
-#include <string>
-
-WarmFloor warmFloor;
-
-void setup() {
-  Serial.begin(9600);
-
-  // delay(4000);
-  setupDisplay();
+void WarmFloor::begin() {
+  screen.begin();
+  clearDisplay();
   connectToWiFi();
-
-  // watch.begin();
   setUnixTime();
-  pinMode(18, INPUT_PULLDOWN);
-  pinMode(19, OUTPUT);
-  pinMode(17, OUTPUT);
-  digitalWrite(19, HIGH);
-
-  warmFloor.heating(true);
-  if (isPump) {
-    warmFloor.pumpOn();
-  } else {
-    warmFloor.pumpOf();
-  }
-  wifiServer.begin();
-
-  // create a task that will be executed in the Task1code() function, with
-  // priority 1 and executed on core 0
-  xTaskCreatePinnedToCore(
-      webServer,       /* Task function. */
-      "TaskWebserver", /* name of task. */
-      10000,           /* Stack size of task */
-      NULL,            /* parameter of the task */
-      0,               /* priority of the task */
-      &TaskWebserver,  /* Task handle to keep track of created task */
-      0);              /* pin task to core 0 */
-  delay(100);
 }
 void setupDisplay() {
-  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for (;;)
-      ;  // Don't proceed, loop forever
-  }
-  display.clearDisplay();
+
 }
 void WarmFloor::wifiOn() {
-  display.fillRect(122, 6, 2, 2, WHITE);
+  WHITE
+  g_display.drawBox(122, 6, 2, 2);
 
-  display.fillRect(119, 4, 2, 2, WHITE);
-  display.fillRect(125, 4, 2, 2, WHITE);
-  display.fillRect(121, 3, 4, 2, WHITE);
+  g_display.drawBox(119, 4, 2, 2);
+  g_display.drawBox(125, 4, 2, 2);
+  g_display.drawBox(121, 3, 4, 2);
 
-  display.fillRect(118, 1, 2, 2, WHITE);
-  display.fillRect(126, 1, 2, 2, WHITE);
-  display.fillRect(120, 0, 6, 2, WHITE);
-  display.display();
+  g_display.drawBox(118, 1, 2, 2);
+  g_display.drawBox(126, 1, 2, 2);
+  g_display.drawBox(120, 0, 6, 2);
+  g_display.sendBuffer();
 }
 
 void WarmFloor::wifiOf() {
-  display.fillRect(118, 0, 10, 8, BLACK);
-  display.display();
+  BLACK
+  g_display.drawBox(118, 0, 10, 8);
+  g_display.sendBuffer();
 }
 
 void WarmFloor::heating(bool isHeating) {
   // Draw bitmap on the screen
+  g_display.setBitmapMode(1);
+  uint8_t widthHeight = 24;
   if (isHeating) {
-    display.drawBitmap(0, 19, heating_map, 20, 27, WHITE);
+    WHITE
+    g_display.drawXBM(0, 20, widthHeight, widthHeight, heating_map);
   } else {
-    display.drawBitmap(0, 19, heating_map, 20, 27, BLACK);
+    BLACK
+    g_display.drawBox(0, 20, widthHeight, widthHeight);
   }
-  display.display();
+  g_display.sendBuffer();
 }
 
 void WarmFloor::pumpOf() {
-  display.fillRoundRect(104, 20, 24, 24, 5, WHITE);
-  display.fillRoundRect(107, 23, 18, 18, 5, BLACK);
-  display.setCursor(111, 28);
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.println(F("OF"));
-  display.display();
-  isPump = false;
+  g_display.setFont(u8g_font_unifont);  
+  WHITE
+  g_display.drawRBox(104, 20, 24, 24, 5);
+  BLACK
+  g_display.drawRBox(107, 23, 18, 18, 5);
+  g_display.setCursor(108, 37);
+  WHITE
+  g_display.print(F("Of"));
+  g_display.sendBuffer();
+  warmFloor.isPump = false;
 }
 
 void WarmFloor::pumpOn() {
-  display.fillRoundRect(104, 20, 24, 24, 5, WHITE);
-  display.fillRoundRect(107, 23, 18, 18, 5, BLACK);
-  display.setCursor(111, 28);
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.println(F("ON"));
-  display.display();
-  isPump = true;
+  g_display.setFont(u8g_font_unifont);  
+  WHITE
+  g_display.drawRBox(104, 20, 24, 24, 5);
+  BLACK
+  g_display.drawRBox(107, 23, 18, 18, 5);
+  g_display.setCursor(108, 37);
+  WHITE
+  g_display.print(F("On"));
+  g_display.sendBuffer();
+  warmFloor.isPump = true;
 }
 void WarmFloor::isConnected(bool isConnected) {
   if (isConnected) {
-    display.fillRect(106, 1, 10, 1, WHITE);
-    display.fillRect(108, 0, 2, 3, WHITE);
-    display.fillRect(112, 0, 2, 3, WHITE);
+    WHITE
+    g_display.drawBox(106, 1, 10, 1);
+    g_display.drawBox(108, 0, 2, 3);
+    g_display.drawBox(112, 0, 2, 3);
   } else {
-    display.fillRect(106, 1, 10, 1, BLACK);
-    display.fillRect(108, 0, 2, 3, BLACK);
-    display.fillRect(112, 0, 2, 3, BLACK);
+    BLACK
+    g_display.drawBox(106, 1, 10, 1);
+    g_display.drawBox(108, 0, 2, 3);
+    g_display.drawBox(112, 0, 2, 3);
   }
-  display.display();
+  g_display.sendBuffer();
 }
 
 void clearDisplay(){
-  bool pixelColor;
-  std::string pixels;
-  for (int i = 0; i < 64; i++) {     // this Y
-    for (int j = 0; j < 128; j++) {  // this X
-      pixelColor = display.getPixel(j, i);
-      if (pixelColor) {
-        pixels.append("1");
-      } else {
-        pixels.append("0");
-      }
-    }
-  }
-  display.clearDisplay();
-  int counter = 0;
-  for (int i = 0; i < 64; i++) {     // this Y
-    for (int j = 0; j < 128; j++) {  // this X
-      display.writePixel(j, i, pixels[counter]);
-      counter++;
-    }
-  }
-  display.display();
+  g_display.clearDisplay();
+  g_display.sendBuffer();
 }
 
 void connectToWiFi() {
@@ -184,25 +138,25 @@ void readInput() {
   }
 }
 uint32_t timerDisplayTime;
-void setDispalyTime(int updateInterval = 1000) {
+void WarmFloor::setDispalyTime(int updateInterval) {
   if (millis() - timerDisplayTime >= updateInterval) {
     timerDisplayTime = millis();  // сброс таймера
-    // display.clearDisplay(); //
-    display.fillRect(SCREEN_WIDTH / 4, SCREEN_HEIGHT / 5, 60, 18, BLACK);
-    display.setTextSize(2);               // Normal 1:1 pixel scale
-    display.setTextColor(SSD1306_WHITE);  // Draw white text
-    display.setCursor(SCREEN_WIDTH / 4,
-                      SCREEN_HEIGHT / 5);  // Start at top-left corner
-    // Serial.println(secondsChar);
+    BLACK
+    g_display.setFont(u8g2_font_crox3cb_tn);
+    uint8_t legnthTime = g_display.getStrWidth("00:00");
+    uint8_t center = SCREEN_WIDTH / 2 - legnthTime / 2;
+    g_display.drawBox(center, 15, legnthTime, 18);
+    g_display.setCursor(center,
+                      20);  // Start at top-left corner
     // std::string strin;
     //  strin += hourChar;
     // strin += ":";
     //  strin += minutesChar;
     //  strin += ":";          little space on screen
     //  strin += secondsChar;
-
-    display.println(F(twoDigits()));
-    display.display();
+    WHITE
+    g_display.print(F(twoDigits()));
+    g_display.sendBuffer();
   }
 }
 const char *twoDigits() {
@@ -300,15 +254,16 @@ uint32_t getInternetTime() {
 }
 
 void setUnixTime() {
-  // watch.settimeUnix(1622501891 + 10800); // + 3600 * 3 need for right
   // GMT+03:00
+  // + 3600 * 3 for summer / - 3600 for winter time
+  // watch.settimeUnix(1622501891 + 10800); // Now ds1302 not work 
   uint32_t currentUnixTime =
-      getInternetTime() + 10800 - 3600;  // - 3600 because winter time
+      getInternetTime() + 10800 - 3600;  
   // currentUnixTime = currentTime + 10800;
   Serial.println(currentUnixTime);
   if (currentTime != 10800) {
     setWatchTime(currentUnixTime);
-    // watch.settimeUnix(currentUnixTime); Now ds1302 not work
+    // watch.settimeUnix(currentUnixTime); 
   }
 }
 
@@ -331,7 +286,7 @@ void setWatchTime(int subt) {
 }
 
 uint32_t timerTickTime;
-void tickTime()  // interval 1000
+void WarmFloor::tickTime()  // interval 1000
 {
   if (millis() - timerTickTime >= 1000) {  // update interval
     timerTickTime = millis();
@@ -374,6 +329,8 @@ const char *constructorCommand(std::string command, std::string data) {
 }
 
 void WarmFloor::commands(WiFiClient client, std::string commands) {
+   Serial.print("Task On Core ");
+   Serial.println(xPortGetCoreID());
   if (commands.compare("pumpOn") == 0) {
     warmFloor.pumpOn();
     client.println(constructorCommand("pumpOn"));
@@ -392,7 +349,7 @@ void WarmFloor::commands(WiFiClient client, std::string commands) {
   }
   if (commands.compare("updateTime") == 0) {
     setUnixTime();
-    setDispalyTime();
+    warmFloor.setDispalyTime();
     client.println(constructorCommand("updateTime"));
   }
   if (commands.compare("readScreen") == 0) {
@@ -409,19 +366,9 @@ void WarmFloor::commands(WiFiClient client, std::string commands) {
   }
 }
 void WarmFloor::readScreen(WiFiClient client, bool send) {
-  bool pixelColor;
   std::string pixels;
   Serial.println("start read");
-  for (int i = 0; i < 64; i++) {     // this Y
-    for (int j = 0; j < 128; j++) {  // this X
-      pixelColor = display.getPixel(j, i);
-      if (pixelColor) {
-        pixels.append("1");
-      } else {
-        pixels.append("0");
-      }
-    }
-  }
+  screen.getPixels(pixels);
   Serial.println("end read");
   // for send
   if (send) {
@@ -432,7 +379,7 @@ void WarmFloor::readScreen(WiFiClient client, bool send) {
   }
 }
 void WarmFloor::justConnected(WiFiClient client) {
-  if (isPump) {
+  if (warmFloor.isPump) {
     client.println(constructorCommand("pumpOn"));
   } else {
     client.println(constructorCommand("pumpOf"));
@@ -455,10 +402,15 @@ void webServer(void *pvParameters) {
             commandWebServer.erase(
                 commandWebServer.end() - 2,
                 commandWebServer.end());  // for correct compare
-            warmFloor.commands(client, commandWebServer);
+           // warmFloor.commands(client, commandWebServer);
+           wifiClient = client;
+           wifiCommands = commandWebServer;
+           createCommandsCore1();
+          Serial.println("Web server on core ");
+           Serial.println(xPortGetCoreID());
             commandWebServer = "";
           }
-          Serial.write(c);
+          //Serial.write(c);
         }
         delay(10);
       }
@@ -469,16 +421,31 @@ void webServer(void *pvParameters) {
     }
   }
 }
-void loop() {
-  tickTime();  // interval 1000
-  setDispalyTime();
-
-  // warmFloor.webServer();
-  // checkWifiOn();
-  // readInput();
-  // testServo();
-  // warmFloor.heating(true);
-  // delay(4000);
-  // warmFloor.heating(false);
-  // delay(4000);
+void WarmFloor::taskToCore(){
+    // create a task that will be executed in the Task1code() function, with
+  // priority 1 and executed on core 0
+  wifiServer.begin();
+  xTaskCreatePinnedToCore(
+      webServer,       /* Task function. */
+      "TaskWebserver", /* name of task. */
+      20000,           /* Stack size of task */
+      NULL,            /* parameter of the task */
+      0,               /* priority of the task */
+      &TaskWebserver,  /* Task handle to keep track of created task */
+      0);              /* pin task to core 0 */
+  delay(100);
+}
+void commandsStart(void *pvParameters){
+    warmFloor.commands(wifiClient, wifiCommands);
+    vTaskDelete(TaskCommandsCore1);
+}
+void createCommandsCore1(){
+    xTaskCreatePinnedToCore(
+      commandsStart,       /* Task function. */
+      "TaskWebserver", /* name of task. */
+      20000,           /* Stack size of task */
+      NULL,            /* parameter of the task */
+      1,               /* priority of the task */
+      &TaskCommandsCore1,  /* Task handle to keep track of created task */
+      1);              /* pin task to core 0 */
 }

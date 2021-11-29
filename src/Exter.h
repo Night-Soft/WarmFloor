@@ -11,6 +11,8 @@ SemaphoreHandle_t  xMutex;
 // webServer
 TaskHandle_t TaskWebserver;
 TaskHandle_t TaskCommandsCore1;
+TaskHandle_t TaskDisconnectCore1;
+TaskHandle_t TaskJustConnectedCore1;
 WiFiServer wifiServer(80);  // Номер порта для сервера
 std::string commandWebServer;
 WiFiClient wifiClient;
@@ -26,6 +28,9 @@ const uint8_t heating_map[] = {
   0xDC, 0xE7, 0x39, 0xF8, 0xFF, 0x1F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   };
 
+uint8_t xDel;
+uint8_t yDel;
+uint8_t widthDel;
 
 int seconds;
 int minutes;
@@ -36,9 +41,14 @@ char minutesChar[10];
 char hourChar[10];
 
 const char *twoDigits();
-bool isClient = false;
+void loadingDisplay();
+void clearLoadingDisplay(uint8_t x, uint8_t y, uint8_t width);
 void commandsStart(void *pvParameters);
+void disconnectedStart(void *pvParameters);
+void justConnectedStart(void *pvParameters);
+void createJustConnectedCore1();
 void createCommandsCore1();
+void createClientDisconnectedCore1();
 void webServer(void *pvParameters);
 void clearDisplay();
 void isr();
@@ -47,7 +57,6 @@ void testServo();
 void setWatchTime(int subt = 1632953602);
 void testRead();
 void connectToWiFi();
-void setupDisplay();
 void checkWifiOn(int updateInterval = 10000);
 
 const char *constructorCommand(std::string commands, std::string data = "");

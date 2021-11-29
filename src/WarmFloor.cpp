@@ -6,11 +6,29 @@ Screen screen;
 void WarmFloor::begin() {
   screen.begin();
   clearDisplay();
+ // loadingDisplay();
   connectToWiFi();
   setUnixTime();
+ // clearLoadingDisplay(xDel,yDel, widthDel);
+ xMutex = xSemaphoreCreateMutex();
 }
-void setupDisplay() {
-
+void loadingDisplay() {
+  WHITE
+  g_display.setFont(u8g_font_unifont);
+  uint8_t legnthTime = g_display.getStrWidth("Loading...");
+  uint8_t centerWidth = SCREEN_WIDTH / 2 - legnthTime / 2;
+  uint8_t centerHight = SCREEN_HEIGHT / 2 - 5;
+  g_display.setCursor(centerWidth, centerHight);  // Start at top-left corner
+  g_display.print(F("Loading..."));
+  g_display.sendBuffer();
+  xDel = centerWidth;
+  yDel = centerHight;
+  widthDel = legnthTime;
+}
+void clearLoadingDisplay(uint8_t x, uint8_t y, uint8_t width) {
+  BLACK
+  g_display.drawBox(x-15, y, width + 10, 10);
+  g_display.sendBuffer();
 }
 void WarmFloor::wifiOn() {
   WHITE
@@ -24,12 +42,14 @@ void WarmFloor::wifiOn() {
   g_display.drawBox(126, 1, 2, 2);
   g_display.drawBox(120, 0, 6, 2);
   g_display.sendBuffer();
+  warmFloor.isWifi = true;
 }
 
 void WarmFloor::wifiOf() {
   BLACK
   g_display.drawBox(118, 0, 10, 8);
   g_display.sendBuffer();
+  warmFloor.isWifi = false;
 }
 
 void WarmFloor::heating(bool isHeating) {
@@ -44,6 +64,7 @@ void WarmFloor::heating(bool isHeating) {
     g_display.drawBox(0, 20, widthHeight, widthHeight);
   }
   g_display.sendBuffer();
+  warmFloor.isHeating = isHeating;
 }
 
 void WarmFloor::pumpOf() {
@@ -71,6 +92,112 @@ void WarmFloor::pumpOn() {
   g_display.sendBuffer();
   warmFloor.isPump = true;
 }
+int timerHowLongPumpRun;
+void WarmFloor::startPump(bool sendScreen, bool updateScreen) {
+    timerHowLongPumpRun = millis();
+    digitalWrite(4, HIGH);
+    isPumpRunnnig = true;
+    if (updateScreen) {
+      warmFloor.pumpOn();
+    }
+    if (sendScreen) {
+      wifiClient.println(constructorCommand("pumpOn"));
+      warmFloor.readScreen(wifiClient, true);
+    }
+
+}
+int timerHowLongBoilerRun;
+void WarmFloor::startBoiler(bool sendScreen, bool updateScreen) {
+    timerHowLongBoilerRun = millis();
+    digitalWrite(5, HIGH);
+    isBoilerHeating = true;
+    if (updateScreen) {
+      warmFloor.heating(true);
+    }
+    if (sendScreen) {
+      wifiClient.println(constructorCommand("heatingOn"));
+      warmFloor.readScreen(wifiClient, true);
+    }
+
+}
+void WarmFloor::shutdownPump(bool sendScreen, bool updateScreen) {
+  digitalWrite(4, LOW);
+  warmFloor.pumpOf();
+  isPumpRunnnig = false;
+  if (sendScreen) {
+    wifiClient.println(constructorCommand("pumpOf"));
+    warmFloor.readScreen(wifiClient, true);
+  }
+}
+void WarmFloor::shutdownBoiler(bool sendScreen, bool updateScreen) {
+  digitalWrite(5, LOW);
+  warmFloor.heating(false);
+  isBoilerHeating = false;
+  if (sendScreen) {
+    wifiClient.println(constructorCommand("heatingOf"));
+    warmFloor.readScreen(wifiClient, true);
+  }
+}
+int timerTimeLeftPump;
+void WarmFloor::timeLeftPump(int howLong, int updateInterval) {
+  if (millis() - timerHowLongPumpRun >= howLong) {
+    timerHowLongPumpRun = millis();
+    warmFloor.shutdownPump(true);
+  }
+  if (millis() - timerTimeLeftPump >= updateInterval) {
+    timerTimeLeftPump = millis();
+    //Serial.println("Time left Pump");
+    //Serial.println(counterLeft);
+  }
+}
+int timerTimeLeftBoiler;
+void WarmFloor::timeLeftBoiler(int howLong, int updateInterval) {
+  if (millis() - timerHowLongBoilerRun >= howLong) {
+    timerHowLongBoilerRun = millis();
+    warmFloor.shutdownBoiler(true);
+  }
+  if (millis() - timerTimeLeftBoiler >= updateInterval) {
+    timerTimeLeftBoiler = millis();
+   // Serial.print("Time left Boiler ");
+    //Serial.println(counterLeft);
+  }
+}
+void WarmFloor::timeLeftDisplay() {
+  g_display.setFont(u8g_font_unifont);  
+  WHITE
+  g_display.drawRBox(104, 20, 24, 24, 5);
+  BLACK
+  g_display.drawRBox(107, 23, 18, 18, 5);
+  g_display.setCursor(108, 37);
+  WHITE
+  g_display.print(F("On"));
+  g_display.sendBuffer();
+}
+const char *twoDigitsTimeLeft() {
+  std::string textHours, textMinutes, text;
+  std::stringstream ssHours(hourChar);  // cast to int
+  std::stringstream ssMinutes(minutesChar);
+  int iHours, iMinutes;
+  ssHours >>
+      iHours;  // Now the variable "iHours" holds the value ssHours(hourChar);
+  ssMinutes >> iMinutes;
+  ssHours << iHours;
+  ssMinutes << iMinutes;
+  textHours = ssHours.str();
+  textMinutes = ssMinutes.str();
+  if (iHours < 10) {
+    textHours = "0" + textHours;
+  } else {
+    textHours = textHours;
+  }
+  if (iMinutes < 10) {
+    textMinutes = "0" + textMinutes;
+  } else {
+    textMinutes = textMinutes;
+  }
+  text = textHours + ":" + textMinutes;
+  return text.c_str();
+}
 void WarmFloor::isConnected(bool isConnected) {
   if (isConnected) {
     WHITE
@@ -84,6 +211,7 @@ void WarmFloor::isConnected(bool isConnected) {
     g_display.drawBox(112, 0, 2, 3);
   }
   g_display.sendBuffer();
+  isClient = isConnected;
 }
 
 void clearDisplay(){
@@ -141,6 +269,7 @@ uint32_t timerDisplayTime;
 void WarmFloor::setDispalyTime(int updateInterval) {
   if (millis() - timerDisplayTime >= updateInterval) {
     timerDisplayTime = millis();  // сброс таймера
+    xSemaphoreTake(xMutex, portMAX_DELAY);
     BLACK
     g_display.setFont(u8g2_font_crox3cb_tn);
     uint8_t legnthTime = g_display.getStrWidth("00:00");
@@ -157,6 +286,10 @@ void WarmFloor::setDispalyTime(int updateInterval) {
     WHITE
     g_display.print(F(twoDigits()));
     g_display.sendBuffer();
+  //  Serial.println("Time set ");
+    //Serial.println(twoDigits());
+    xSemaphoreGive(xMutex);
+
   }
 }
 const char *twoDigits() {
@@ -327,30 +460,63 @@ const char *constructorCommand(std::string command, std::string data) {
   command.insert(0, strLength);
   return command.c_str();
 }
-
+void WarmFloor::repairScreen() {
+  clearDisplay();
+  if (warmFloor.isPump) {
+    warmFloor.pumpOn();
+  } else {
+    warmFloor.pumpOf();
+  }
+  if (isHeating) {
+    warmFloor.heating(true);
+  } else {
+    warmFloor.heating(false);
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    warmFloor.wifiOn();
+  } else {
+    warmFloor.wifiOf();
+  }
+  if (isClient) {
+    isConnected(true);
+  } else {
+    isConnected(false);
+  }
+}
 void WarmFloor::commands(WiFiClient client, std::string commands) {
    Serial.print("Task On Core ");
    Serial.println(xPortGetCoreID());
   if (commands.compare("pumpOn") == 0) {
     warmFloor.pumpOn();
+    warmFloor.startPump(true);
     client.println(constructorCommand("pumpOn"));
+    readScreen(client, true);
+    
   }
   if (commands.compare("pumpOf") == 0) {
     warmFloor.pumpOf();
+    warmFloor.shutdownPump();
     client.println(constructorCommand("pumpOf"));
+    readScreen(client, true);
+    
+  }
+  if (commands.compare("heatingOn") == 0) {
+    warmFloor.heating(true);
+    warmFloor.startBoiler(true);
+    client.println(constructorCommand("heatingOn"));
+    readScreen(client, true);
   }
     if (commands.compare("heatingOf") == 0) {
     warmFloor.heating(false);
+    warmFloor.shutdownBoiler();
     client.println(constructorCommand("heatingOf"));
-  }
-    if (commands.compare("heatingOn") == 0) {
-    warmFloor.heating(true);
-    client.println(constructorCommand("heatingOn"));
+    readScreen(client, true);
   }
   if (commands.compare("updateTime") == 0) {
     setUnixTime();
     warmFloor.setDispalyTime();
     client.println(constructorCommand("updateTime"));
+    readScreen(client, true);
   }
   if (commands.compare("readScreen") == 0) {
     readScreen(client, true);
@@ -360,23 +526,28 @@ void WarmFloor::commands(WiFiClient client, std::string commands) {
     clearDisplay();
     client.println(constructorCommand("clearDisplay"));
   }
+    if (commands.compare("repairScreen") == 0) {
+    client.println(constructorCommand("repairScreen"));
+    warmFloor.repairScreen();
+  }
   if (commands.compare("reboot") == 0) {
     client.println(constructorCommand("reboot"));
     ESP.restart();
   }
 }
 void WarmFloor::readScreen(WiFiClient client, bool send) {
-  std::string pixels;
-  Serial.println("start read");
-  screen.getPixels(pixels);
-  Serial.println("end read");
-  // for send
-  if (send) {
-    client.println(constructorCommand("screen", pixels));
-    Serial.println("send size = " + pixels.size());
-  } else {
-    Serial.println("Not send just read");
-  }
+    std::string pixels;
+    Serial.println("start read");
+    screen.getPixels(pixels);
+    Serial.println("end read");
+    // for send
+    if (send) {
+      client.println(constructorCommand("screen", pixels));
+      Serial.println("send size = " + pixels.size());
+    } else {
+      Serial.println("Not send just read");
+    }
+  
 }
 void WarmFloor::justConnected(WiFiClient client) {
   if (warmFloor.isPump) {
@@ -390,20 +561,20 @@ void webServer(void *pvParameters) {
   for (;;) {
     WiFiClient client = wifiServer.available();
     if (client) {
-      warmFloor.isConnected(true);
-      warmFloor.justConnected(client);
+      wifiClient = client;
+      createJustConnectedCore1();
+    //  xSemaphoreTake(xMutex, portMAX_DELAY);
+    //  xSemaphoreGive(xMutex);
       while (client.connected()) {
         while (client.available() > 0) {
           char c = client.read();
           commandWebServer.push_back(c);
-          if (commandWebServer.back() ==
-              '\n') {  // если байт является переводом строки
+          if (commandWebServer.back() == '\n') {  // если байт является переводом строки
             Serial.println("yes last contain");
             commandWebServer.erase(
                 commandWebServer.end() - 2,
                 commandWebServer.end());  // for correct compare
            // warmFloor.commands(client, commandWebServer);
-           wifiClient = client;
            wifiCommands = commandWebServer;
            createCommandsCore1();
           Serial.println("Web server on core ");
@@ -417,7 +588,7 @@ void webServer(void *pvParameters) {
 
       client.stop();
       Serial.println("Client disconnected");
-      warmFloor.isConnected(false);
+      createClientDisconnectedCore1();
     }
   }
 }
@@ -435,17 +606,50 @@ void WarmFloor::taskToCore(){
       0);              /* pin task to core 0 */
   delay(100);
 }
-void commandsStart(void *pvParameters){
-    warmFloor.commands(wifiClient, wifiCommands);
-    vTaskDelete(TaskCommandsCore1);
+void commandsStart(void *pvParameters) {
+  Serial.println("Commands on core ");
+  Serial.println(xPortGetCoreID());
+  warmFloor.commands(wifiClient, wifiCommands);
+  vTaskDelete(TaskCommandsCore1);
 }
 void createCommandsCore1(){
     xTaskCreatePinnedToCore(
       commandsStart,       /* Task function. */
-      "TaskWebserver", /* name of task. */
+      "TaskCommandsCore1", /* name of task. */
+      20000,           /* Stack size of task */
+      NULL,            /* parameter of the task */
+      2,               /* priority of the task */
+      &TaskCommandsCore1,  /* Task handle to keep track of created task */
+      1);              /* pin task to core 0 */
+}
+void disconnectedStart(void *pvParameters) {
+  Serial.println("Disconnected on core ");
+  Serial.println(xPortGetCoreID());
+  warmFloor.isConnected(false);
+  vTaskDelete(TaskDisconnectCore1);
+}
+void createClientDisconnectedCore1(){
+    xTaskCreatePinnedToCore(
+      disconnectedStart,       /* Task function. */
+      "TaskDisconnectCore1", /* name of task. */
       20000,           /* Stack size of task */
       NULL,            /* parameter of the task */
       1,               /* priority of the task */
-      &TaskCommandsCore1,  /* Task handle to keep track of created task */
+      &TaskDisconnectCore1,  /* Task handle to keep track of created task */
+      1);              /* pin task to core 0 */
+}
+void justConnectedStart(void *pvParameters) {
+      warmFloor.isConnected(true);
+      warmFloor.justConnected(wifiClient);
+      vTaskDelete(TaskJustConnectedCore1);
+}
+void createJustConnectedCore1(){
+    xTaskCreatePinnedToCore(
+      justConnectedStart,       /* Task function. */
+      "TaskJustConnectedCore1", /* name of task. */
+      20000,           /* Stack size of task */
+      NULL,            /* parameter of the task */
+      3,               /* priority of the task */
+      &TaskJustConnectedCore1,  /* Task handle to keep track of created task */
       1);              /* pin task to core 0 */
 }

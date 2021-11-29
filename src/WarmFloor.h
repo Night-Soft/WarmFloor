@@ -25,7 +25,23 @@ class WarmFloor  // Main Class
  public:
   // from Oled
   // network
+  //bool isNeedPumpStart = false;
+ // bool isStillRun = false;
+  bool isPumpRunnnig = false;
   bool isPump = false;
+  bool isHeating = false;
+  bool isBoilerHeating = false;
+  bool isWifi = false;
+  bool isClient = false;
+  void timeLeftDisplay();
+  const char * twoDigitsTimeLeft();
+  void timeLeftPump(int howLong = 10000, int updateInterval = 1000);
+  void timeLeftBoiler(int howLong = 10000, int updateInterval = 1000);
+  void shutdownPump(bool sendScreen = false, bool updateScreen = false);
+  void shutdownBoiler(bool sendScreen = false, bool updateScreen = false);
+  void startPump(bool sendScreen = false, bool updateScreen = false);
+  void startBoiler(bool sendScreen = false, bool updateScreen = false);
+  void repairScreen();
   void tickTime();  
   void setDispalyTime(int updateInterval = 1000);
   void begin();

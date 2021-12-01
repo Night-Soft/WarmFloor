@@ -1,7 +1,6 @@
 //#include "WarmFloor.h"
 // WarmFloor warmFloor;
 #include "Ex.h"
-
 void setup() {
   Serial.begin(9600);
   Serial.println("work");
@@ -13,15 +12,15 @@ void setup() {
   if (warmFloor.isPump) {
     warmFloor.pumpOn();
   } else {
-    warmFloor.pumpOf();
+    warmFloor.pumpOff();
   }
 }
 
 void loop() {
-   warmFloor.tickTime();  // interval 1000
+  warmFloor.tickTime();  // interval 1000
   warmFloor.setDispalyTime();
-   //Serial.print("Time has passed ");
-   //Serial.println(millis());
+  // Serial.print("Time has passed ");
+  // Serial.println(millis());
   //  if (warmFloor.isNeedPumpStart) {
   //    warmFloor.startPump();
   //  }
@@ -31,5 +30,5 @@ void loop() {
   if (warmFloor.isBoilerHeating) {
     warmFloor.timeLeftBoiler(25000);
   }
-    // delay(3000);
-  }
+  // delay(3000);
+}

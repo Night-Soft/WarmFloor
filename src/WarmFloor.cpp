@@ -1,3 +1,5 @@
+#include <math.h>
+#include <sstream>
 #include "Ex.h"
 #include "Exter.h"
 #include "Screen/Screen.h"
@@ -67,7 +69,7 @@ void WarmFloor::heating(bool isHeating) {
   warmFloor.isHeating = isHeating;
 }
 
-void WarmFloor::pumpOf() {
+void WarmFloor::pumpOff() {
   g_display.setFont(u8g_font_unifont);  
   WHITE
   g_display.drawRBox(104, 20, 24, 24, 5);
@@ -97,6 +99,8 @@ void WarmFloor::startPump(bool sendScreen, bool updateScreen) {
     timerHowLongPumpRun = millis();
     digitalWrite(4, HIGH);
     isPumpRunnnig = true;
+    timeLeftDisplay();
+    warmFloor.showCurrentTime = false;
     if (updateScreen) {
       warmFloor.pumpOn();
     }
@@ -111,6 +115,8 @@ void WarmFloor::startBoiler(bool sendScreen, bool updateScreen) {
     timerHowLongBoilerRun = millis();
     digitalWrite(5, HIGH);
     isBoilerHeating = true;
+    timeLeftDisplay();
+    warmFloor.showCurrentTime = false;
     if (updateScreen) {
       warmFloor.heating(true);
     }
@@ -122,80 +128,157 @@ void WarmFloor::startBoiler(bool sendScreen, bool updateScreen) {
 }
 void WarmFloor::shutdownPump(bool sendScreen, bool updateScreen) {
   digitalWrite(4, LOW);
-  warmFloor.pumpOf();
   isPumpRunnnig = false;
-  if (sendScreen) {
-    wifiClient.println(constructorCommand("pumpOf"));
-    warmFloor.readScreen(wifiClient, true);
+  if (isPumpRunnnig == false && isBoilerHeating == false) {
+    warmFloor.showCurrentTime = true;
+    repairScreen();
   }
 }
 void WarmFloor::shutdownBoiler(bool sendScreen, bool updateScreen) {
   digitalWrite(5, LOW);
-  warmFloor.heating(false);
   isBoilerHeating = false;
-  if (sendScreen) {
-    wifiClient.println(constructorCommand("heatingOf"));
-    warmFloor.readScreen(wifiClient, true);
+  if (isPumpRunnnig == false && isBoilerHeating == false) {
+    warmFloor.showCurrentTime = true;
+    repairScreen();
   }
 }
 int timerTimeLeftPump;
 void WarmFloor::timeLeftPump(int howLong, int updateInterval) {
   if (millis() - timerHowLongPumpRun >= howLong) {
     timerHowLongPumpRun = millis();
-    warmFloor.shutdownPump(true);
+    //warmFloor.shutdownPump(true);
+    commands(wifiClient, "pumpOff");
+    return;
   }
   if (millis() - timerTimeLeftPump >= updateInterval) {
     timerTimeLeftPump = millis();
-    //Serial.println("Time left Pump");
-    //Serial.println(counterLeft);
+    // Here update time left on display
+    warmFloor.timeLeftPumpDisplay(twoDigitsTimeLeft(timerHowLongPumpRun - timerTimeLeftPump + howLong));
+
   }
 }
 int timerTimeLeftBoiler;
 void WarmFloor::timeLeftBoiler(int howLong, int updateInterval) {
   if (millis() - timerHowLongBoilerRun >= howLong) {
     timerHowLongBoilerRun = millis();
-    warmFloor.shutdownBoiler(true);
+    //warmFloor.shutdownBoiler(true);
+    commands(wifiClient, "heatingOff");
+    return;
   }
   if (millis() - timerTimeLeftBoiler >= updateInterval) {
     timerTimeLeftBoiler = millis();
-   // Serial.print("Time left Boiler ");
-    //Serial.println(counterLeft);
+    // Here update time left on display
+    warmFloor.timeLeftBoilerDisplay(twoDigitsTimeLeft(timerHowLongBoilerRun - timerTimeLeftBoiler + howLong));
+
   }
 }
 void WarmFloor::timeLeftDisplay() {
+  g_display.clearDisplay();
+  // pumpOn
+  if(warmFloor.isPump){
   g_display.setFont(u8g_font_unifont);  
   WHITE
-  g_display.drawRBox(104, 20, 24, 24, 5);
+  g_display.drawRBox(0, 3, 24, 24, 5);
   BLACK
-  g_display.drawRBox(107, 23, 18, 18, 5);
-  g_display.setCursor(108, 37);
+  g_display.drawRBox(3, 6, 18, 18, 5);
+  g_display.setCursor(4, 20);
   WHITE
   g_display.print(F("On"));
+  }
+  // Heating
+  if (warmFloor.isHeating){
+  g_display.setBitmapMode(1);
+  uint8_t widthHeight = 24;
+  WHITE
+  g_display.drawXBM(0, 36, widthHeight, widthHeight, heating_map);
+  }
+  // Draw line
+  g_display.drawBox(0,32,SCREEN_WIDTH, 2);
   g_display.sendBuffer();
+  // wifi / connected
+  warmFloor.wifiOn();
+  warmFloor.isConnected(true);
+
 }
-const char *twoDigitsTimeLeft() {
-  std::string textHours, textMinutes, text;
-  std::stringstream ssHours(hourChar);  // cast to int
-  std::stringstream ssMinutes(minutesChar);
-  int iHours, iMinutes;
-  ssHours >>
-      iHours;  // Now the variable "iHours" holds the value ssHours(hourChar);
-  ssMinutes >> iMinutes;
-  ssHours << iHours;
-  ssMinutes << iMinutes;
-  textHours = ssHours.str();
-  textMinutes = ssMinutes.str();
-  if (iHours < 10) {
-    textHours = "0" + textHours;
+void WarmFloor::timeLeftPumpDisplay(const char * timeLeft) {
+    BLACK
+    g_display.setFont(u8g2_font_crox3cb_tn); //u8g_font_unifont = 10px
+    uint8_t legntghTime = g_display.getStrWidth(timeLeft);
+    uint8_t centerX = (SCREEN_WIDTH - 24 - legntghTime) / 2 + 24; // (128-24-60) / 2 + 24
+    uint8_t centerY = (SCREEN_HEIGHT / 2 - 12) / 2; // (128-24-60) / 2 + 24
+    uint8_t centerYCursor = (SCREEN_HEIGHT / 2 + 12) / 2; // (128-24-60) / 2 + 24
+    g_display.drawBox(centerX, centerY, legntghTime, 18);
+    g_display.setCursor(centerX, centerYCursor);  // Start at top-left corner
+    WHITE
+    g_display.print(F(timeLeft));
+    g_display.sendBuffer();
+}
+void WarmFloor::timeLeftBoilerDisplay(const char * timeLeft) {
+    BLACK
+    g_display.setFont(u8g2_font_crox3cb_tn);
+    uint8_t legntghTime = g_display.getStrWidth(timeLeft);
+    uint8_t centerX = (SCREEN_WIDTH - 24 - legntghTime) / 2 + 24; // (128-24-60) / 2 + 24
+    uint8_t centerY = (SCREEN_HEIGHT / 2 - 12) / 2 + 32; // (128-24-60) / 2 + 24
+    uint8_t centerYCursor = (SCREEN_HEIGHT / 2 + 12) / 2 + 32; // (128-24-60) / 2 + 24
+    g_display.drawBox(centerX, centerY, legntghTime, 12); // 12 = height font
+    WHITE
+    g_display.setCursor(centerX, centerYCursor);  // Start at top-left corner
+    g_display.print(F(timeLeft));
+    g_display.sendBuffer();
+}
+const char *WarmFloor::twoDigitsTimeLeft(int timeLeft) {
+  //Serial.print("timeLeft mil ");
+  //Serial.println(timeLeft);
+  double hours = 0, minutes = 0, seconds = 0;
+  // get hours
+  if (timeLeft / (1000 * 3600) >= 1) {
+    hours = floor(timeLeft / (1000 * 3600));
+    timeLeft = timeLeft - 3600 * hours * 1000;
+  }
+  // get minutes
+  if (timeLeft / (1000 * 60) >= 1) {
+    minutes = floor(timeLeft / (1000 * 60));
+    timeLeft = timeLeft - 60 * minutes * 1000;
+  }
+  // get seconds
+  if (timeLeft / 1000 >= 1) {
+    seconds = floor(timeLeft / 1000);
+    timeLeft = timeLeft - seconds * 1000; // miliseconds dont need
+  }
+   std::string textHours, textMinutes, textSeconds, text;
+   std::ostringstream strs;
+   strs << hours;
+   textHours = strs.str();
+   strs.str("");
+   strs << minutes;
+   textMinutes = strs.str();
+   strs.str("");
+   strs << seconds;
+   textSeconds = strs.str();
+  if (hours < 10) {
+    textHours = "0" + textHours + ":";
   } else {
     textHours = textHours;
   }
-  if (iMinutes < 10) {
-    textMinutes = "0" + textMinutes;
+  if (minutes < 10) {
+    textMinutes = "0" + textMinutes + ":";
   } else {
     textMinutes = textMinutes;
   }
-  text = textHours + ":" + textMinutes;
+  if (seconds < 10) {
+    textSeconds = "0" + textSeconds;
+  } else {
+    textSeconds = textSeconds;
+  }
+  // clear empty
+  if(hours == 0){
+    textHours = "";
+  }
+  if (minutes == 0) {
+    textMinutes = "";
+  }
+  text = textHours + textMinutes + textSeconds;
+  Serial.println(text.c_str());
   return text.c_str();
 }
 void WarmFloor::isConnected(bool isConnected) {
@@ -267,29 +350,21 @@ void readInput() {
 }
 uint32_t timerDisplayTime;
 void WarmFloor::setDispalyTime(int updateInterval) {
+  if (showCurrentTime == true) {
   if (millis() - timerDisplayTime >= updateInterval) {
     timerDisplayTime = millis();  // сброс таймера
-    xSemaphoreTake(xMutex, portMAX_DELAY);
+   // xSemaphoreTake(xMutex, portMAX_DELAY);
     BLACK
     g_display.setFont(u8g2_font_crox3cb_tn);
     uint8_t legnthTime = g_display.getStrWidth("00:00");
     uint8_t center = SCREEN_WIDTH / 2 - legnthTime / 2;
     g_display.drawBox(center, 15, legnthTime, 18);
-    g_display.setCursor(center,
-                      20);  // Start at top-left corner
-    // std::string strin;
-    //  strin += hourChar;
-    // strin += ":";
-    //  strin += minutesChar;
-    //  strin += ":";          little space on screen
-    //  strin += secondsChar;
+    g_display.setCursor(center, 20);  // Start at top-left corner
     WHITE
     g_display.print(F(twoDigits()));
     g_display.sendBuffer();
-  //  Serial.println("Time set ");
-    //Serial.println(twoDigits());
-    xSemaphoreGive(xMutex);
-
+   // xSemaphoreGive(xMutex);
+  }
   }
 }
 const char *twoDigits() {
@@ -421,6 +496,7 @@ void setWatchTime(int subt) {
 uint32_t timerTickTime;
 void WarmFloor::tickTime()  // interval 1000
 {
+  
   if (millis() - timerTickTime >= 1000) {  // update interval
     timerTickTime = millis();
     seconds++;
@@ -465,7 +541,7 @@ void WarmFloor::repairScreen() {
   if (warmFloor.isPump) {
     warmFloor.pumpOn();
   } else {
-    warmFloor.pumpOf();
+    warmFloor.pumpOff();
   }
   if (isHeating) {
     warmFloor.heating(true);
@@ -493,10 +569,11 @@ void WarmFloor::commands(WiFiClient client, std::string commands) {
     readScreen(client, true);
     
   }
-  if (commands.compare("pumpOf") == 0) {
-    warmFloor.pumpOf();
+  if (commands.compare("pumpOff") == 0) {
+    warmFloor.pumpOff();
     warmFloor.shutdownPump();
-    client.println(constructorCommand("pumpOf"));
+    warmFloor.setDispalyTime();
+    client.println(constructorCommand("pumpOff"));
     readScreen(client, true);
     
   }
@@ -506,10 +583,11 @@ void WarmFloor::commands(WiFiClient client, std::string commands) {
     client.println(constructorCommand("heatingOn"));
     readScreen(client, true);
   }
-    if (commands.compare("heatingOf") == 0) {
+    if (commands.compare("heatingOff") == 0) {
     warmFloor.heating(false);
     warmFloor.shutdownBoiler();
-    client.println(constructorCommand("heatingOf"));
+    warmFloor.setDispalyTime();
+    client.println(constructorCommand("heatingOff"));
     readScreen(client, true);
   }
   if (commands.compare("updateTime") == 0) {
@@ -553,7 +631,7 @@ void WarmFloor::justConnected(WiFiClient client) {
   if (warmFloor.isPump) {
     client.println(constructorCommand("pumpOn"));
   } else {
-    client.println(constructorCommand("pumpOf"));
+    client.println(constructorCommand("pumpOff"));
   }
   warmFloor.readScreen(client, true);
 }

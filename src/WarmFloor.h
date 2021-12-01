@@ -27,14 +27,17 @@ class WarmFloor  // Main Class
   // network
   //bool isNeedPumpStart = false;
  // bool isStillRun = false;
-  bool isPumpRunnnig = false;
-  bool isPump = false;
-  bool isHeating = false;
-  bool isBoilerHeating = false;
+  bool showCurrentTime = true;
+  bool isPumpRunnnig = false; // only for loop
+  bool isPump = false; // state of 
+  bool isHeating = false; // state of 
+  bool isBoilerHeating = false; // only for loop
   bool isWifi = false;
   bool isClient = false;
   void timeLeftDisplay();
-  const char * twoDigitsTimeLeft();
+  void timeLeftPumpDisplay(const char * timeLeft);
+  void timeLeftBoilerDisplay(const char * timeLeft);
+  const char * twoDigitsTimeLeft(int timeLeft);
   void timeLeftPump(int howLong = 10000, int updateInterval = 1000);
   void timeLeftBoiler(int howLong = 10000, int updateInterval = 1000);
   void shutdownPump(bool sendScreen = false, bool updateScreen = false);
@@ -51,7 +54,7 @@ class WarmFloor  // Main Class
   void readScreen(WiFiClient client, bool send);
   void commands(WiFiClient client, std::string commands = "none");
   void heating(bool isHeating = false);  // Boiler should be
-  void pumpOf();
+  void pumpOff();
   void pumpOn();
   void wifiOn();
   void wifiOf();

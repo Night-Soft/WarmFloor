@@ -4,34 +4,16 @@ uint8_t getPixel(uint16_t x, uint16_t y, uint8_t *dest_ptr, uint8_t tile_width);
 
 void Screen::begin() {
     g_display.begin();
-    g_display.setFont(u8g_font_unifont);  
 
-}
-void Screen::pumpOf() {
-  g_display.setColorIndex(1);   //white
-  g_display.drawRBox(104, 20, 24, 24, 5); 
-  g_display.setColorIndex(0);  
-  g_display.drawRBox(107, 23, 18, 18, 5);
-  g_display.setColorIndex(1);
- // g_display.setFont(u8g_font_unifont);  
-  g_display.setCursor(108, 47);
-  g_display.print(F("Of"));
-  g_display.sendBuffer();
-}
-
-void Screen::testShow() {
-  g_display.setColorIndex(1);  
-  g_display.drawBox(0, 0, 4, 4);
-  g_display.sendBuffer();
 }
 
 void Screen::getPixels(string &pixels){
+  Serial.print("getPixels on Core ");
+  Serial.println(xPortGetCoreID());
   readPixels(getPixel, pixels);
+  
 }
-// string Screen::getPixels(string pixels){
-//   readPixels(getPixel, pixels);
-//   return pixels;
-// }
+
 void Screen::readPixels(uint8_t (*get_pixel)(uint16_t x, uint16_t y, uint8_t *dest_ptr, uint8_t tile_width), string & pixels) {
   uint16_t x, y;
   uint16_t w, h;

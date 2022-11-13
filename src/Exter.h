@@ -10,13 +10,16 @@ const char *password = "";
 SemaphoreHandle_t  xMutex;
 // webServer
 TaskHandle_t TaskWebserver;
+TaskHandle_t TaskWebserverBegin;
 TaskHandle_t TaskCommandsCore1;
 TaskHandle_t TaskDisconnectCore1;
 TaskHandle_t TaskJustConnectedCore1;
 WiFiServer wifiServer(80);  // Номер порта для сервера
-std::string commandWebServer;
+//std::string commandWebServer;
+char commandWebServer[20] = {0}; // for temp
+char wifiCommands[20] = {0};
+
 WiFiClient wifiClient;
-std::string wifiCommands = "";
 #define heating_map_width 24
 #define heating_map_height 24
 const uint8_t heating_map[] = {
@@ -36,6 +39,7 @@ int seconds;
 int minutes;
 int hour;
 
+
 char secondsChar[10];
 char minutesChar[10];
 char hourChar[10];
@@ -52,12 +56,11 @@ void createClientDisconnectedCore1();
 void webServer(void *pvParameters);
 void clearDisplay();
 void isr();
-void setUnixTime();
+// void setUnixTime();
 void testServo();
-void setWatchTime(int subt = 1632953602);
+// void setWatchTime(int subt = 1632953602);
 void testRead();
 void connectToWiFi();
 void checkWifiOn(int updateInterval = 10000);
 
-const char *constructorCommand(std::string commands, std::string data = "");
 #endif
